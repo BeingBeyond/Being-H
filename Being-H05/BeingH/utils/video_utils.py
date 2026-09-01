@@ -146,32 +146,78 @@ def get_frames_by_timestamps(
         frames = np.array(frames)
         return frames
     elif video_backend == "torchvision_av":
-        # set backend
         torchvision.set_video_backend("pyav")
-        # set a video stream reader
         reader = torchvision.io.VideoReader(video_path, "video")
-        # set the first and last requested timestamps
-        # Note: previous timestamps are usually loaded, since we need to access the previous key frame
-        first_ts = timestamps[0]
-        last_ts = timestamps[-1]
-        # access closest key frame of the first requested frame
-        # Note: closest key frame timestamp is usally smaller than `first_ts` (e.g. key frame can be the first frame of the video)
+
+        # Sort timestamps to process in chronological order, track original indices
+        ts_array = np.array(timestamps, dtype=np.float64)
+        sort_idx = np.argsort(ts_array)
+        sorted_ts = ts_array[sort_idx]
+
+        first_ts = float(sorted_ts[0])
+
+        # Seek to the keyframe at or before the first target timestamp, then iterate
+        # forward frame-by-frame until each target timestamp is reached, keeping only
+        # the closest frame per requested timestamp. Returning every decoded frame
+        # instead would hand the caller more frames than it asked for.
         # for details on what `seek` is doing see: https://pyav.basswood-io.com/docs/stable/api/container.html?highlight=inputcontainer#av.container.InputContainer.seek
         reader.seek(first_ts, keyframes_only=True)
-        # load all frames until last requested frame
-        loaded_frames = []
-        loaded_ts = []
+
+        result = {}
+        prev_frame = None
+        prev_pts = None
+        target_ptr = 0
+
         for frame in reader:
-            current_ts = frame["pts"]
-            loaded_frames.append(frame["data"].numpy())
-            loaded_ts.append(current_ts)
-            if current_ts >= last_ts:
+            current_pts = frame["pts"]
+            # frame["data"] is (C, H, W), convert to (H, W, C)
+            current_frame = frame["data"].numpy().transpose(1, 2, 0)
+
+            # Assign timestamps that we have now reached or passed
+            while target_ptr < len(sorted_ts) and current_pts >= sorted_ts[target_ptr]:
+                orig_idx = int(sort_idx[target_ptr])
+                target_ts = sorted_ts[target_ptr]
+                # Pick the temporally closer frame between prev and current
+                if prev_pts is not None and abs(prev_pts - target_ts) < abs(current_pts - target_ts):
+                    result[orig_idx] = prev_frame.copy()
+                else:
+                    result[orig_idx] = current_frame.copy()
+                target_ptr += 1
+
+            prev_frame = current_frame
+            prev_pts = current_pts
+
+            if target_ptr >= len(sorted_ts):
                 break
-          
+
         reader.container.close()
         reader = None
-        frames = np.array(loaded_frames)
-        return frames.transpose(0, 2, 3, 1)
+
+        # Fill remaining timestamps with last decoded frame (end-of-video edge case)
+        while target_ptr < len(sorted_ts):
+            if prev_frame is not None:
+                result[int(sort_idx[target_ptr])] = prev_frame.copy()
+            target_ptr += 1
+
+        frames_list = []
+        for i in range(len(timestamps)):
+            if i not in result:
+                raise ValueError(
+                    f"No frame could be decoded for timestamp index {i} "
+                    f"(ts={timestamps[i]:.4f}s). "
+                    f"Video may be corrupted or seek failed: {video_path}"
+                )
+            frames_list.append(result[i])
+        frames = np.array(frames_list)
+
+        if len(frames) != len(timestamps):
+            raise ValueError(
+                f"Video frame extraction incomplete: "
+                f"requested {len(timestamps)} frames, got {len(frames)} frames. "
+                f"Video may be corrupted: {video_path}"
+            )
+
+        return frames
     else:
         raise NotImplementedError
 

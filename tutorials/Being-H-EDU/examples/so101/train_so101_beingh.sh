@@ -62,22 +62,21 @@ Common options:
   --pretrain-model PATH       InternVL/Qwen VLM checkpoint path
   --expert-model PATH         Qwen expert checkpoint path
   --resume-from PATH          Resume/pretrained checkpoint path
-  --run-name NAME             Output folder and default W&B run name
+  --run-name NAME             Output folder name
   --output-root PATH          Output root directory
   --log-dir PATH              TensorBoard log directory
   --master-port PORT          torch.distributed master port
 
-W&B options:
-  --wandb                     Enable W&B logging
-  --no-wandb                  Disable W&B logging
-  --wandb-project NAME        W&B project name, also enables W&B
-  --wandb-entity NAME         W&B entity/team
-  --wandb-name NAME           W&B run name
-  --wandb-dir PATH            Local W&B directory
-  --wandb-mode MODE           online, offline, or disabled
+W&B options (not supported by BeingH/train/train.py):
+  These are still accepted so existing commands do not break on an unknown option,
+  but anything that enables W&B exits with an error instead of training silently
+  without logging. Training metrics go to TensorBoard in --log-dir.
+  --wandb, --wandb-project NAME, --wandb-entity NAME, --wandb-name NAME,
+  --wandb-dir PATH, --wandb-mode MODE
+  --no-wandb                  Disable W&B logging (the default)
 
 Example:
-  bash train_so101_beingh.sh --gpus 4 --steps 20000 --lr 5e-5 --wandb --wandb-project so101
+  bash train_so101_beingh.sh --gpus 4 --steps 20000 --lr 5e-5
 EOF
 }
 
@@ -199,13 +198,21 @@ if [[ -z "${WANDB_NAME}" ]]; then
   WANDB_NAME="${MODEL_NAME}"
 fi
 
-mkdir -p "${OUTPUT_DIR}" "${LOG_DIR}" "${WANDB_DIR}"
+# BeingH/train/train.py accepts no W&B arguments, so they are not forwarded below.
+# Fail loudly rather than accepting --wandb and logging nothing.
+if [[ "${USE_WANDB}" == "True" ]]; then
+  echo "W&B logging was requested, but BeingH/train/train.py does not support it." >&2
+  echo "Re-run without --wandb / --wandb-project; training logs to TensorBoard in ${LOG_DIR}." >&2
+  exit 2
+fi
+
+mkdir -p "${OUTPUT_DIR}" "${LOG_DIR}"
 echo "================================================================"
 echo "Starting SO101 training..."
 echo "Output: ${OUTPUT_DIR}"
 echo "GPUs: ${NUM_GPUS} | steps: ${MAX_STEPS} | lr: ${LEARNING_RATE}"
 echo "Dataset config: ${DATASET_CONFIG_FILE}"
-echo "W&B: ${USE_WANDB} | project: ${WANDB_PROJECT} | name: ${WANDB_NAME} | mode: ${WANDB_MODE}"
+echo "TensorBoard log dir: ${LOG_DIR}"
 echo "================================================================"
 
 cd "${PROJECT_ROOT}"
@@ -271,11 +278,5 @@ python -m torch.distributed.run \
   --simulated_delay 0 \
   --rtc_delay_exp_weight True \
   --use_inference_prefix_overwrite True \
-  --use_wandb ${USE_WANDB} \
-  --wandb_project "${WANDB_PROJECT}" \
-  --wandb_entity "${WANDB_ENTITY}" \
-  --wandb_name "${WANDB_NAME}" \
-  --wandb_dir "${WANDB_DIR}" \
-  --wandb_mode "${WANDB_MODE}" \
   "${EXTRA_TRAIN_ARGS[@]}" \
   2>&1 | tee "${OUTPUT_DIR}/training.log"

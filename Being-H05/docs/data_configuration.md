@@ -124,26 +124,48 @@ DATA_CONFIG_MAP = {
 
 ### Step 3: Add to Dataset Registry
 
-Edit `configs/dataset_info.py`:
+Edit `configs/dataset_info.py`. `DATASET_REGISTRY` maps a dataset *group* name to the dataset class
+used to read it, and `DATASET_INFO` lists the datasets in that group with their paths:
 
 ```python
 DATASET_REGISTRY = {
-    "my_robot_posttrain": {
-        "path": "/path/to/my_robot_data",
-        "data_config": "my_robot",
+    ...
+    'my_robot_posttrain': LeRobotIterableDataset,
+}
+
+DATASET_INFO = {
+    ...
+    'my_robot_posttrain': {
+        'my_robot_task': {
+            'dataset_path': "/path/to/my_robot_data",
+        },
     },
 }
 ```
 
 ### Step 4: Create YAML Config
 
-Create `configs/posttrain/my_robot/my_robot.yaml`:
+Create `configs/posttrain/my_robot/my_robot.yaml`. The top-level key is the group name from
+`DATASET_REGISTRY`, and `dataset_names` / `data_config_names` / `embodiment_tags` are parallel lists
+with one entry per dataset:
 
 ```yaml
-dataset_config:
-  - dataset_name: my_robot_posttrain
-    data_config: my_robot
-    weight: 1.0
+my_robot_posttrain:
+  dataset_names:
+  - my_robot_task
+  data_config_names:
+  - "my_robot"
+  embodiment_tags:
+  - "new_embodiment"
+  sampling_strategy: "step"   # 'step' or 'trajectory'
+  video_backend: "torchvision_av"
+  vit_transform_args:
+    type: "beingh"
+    normalize_type: "imagenet"
+    use_color_jitter: true
+  frame_step_size:
+  - 1
+  weight: 1
 ```
 
 ### Step 5: Verify Setup

@@ -35,6 +35,7 @@ Desktop.ini
 *.tmp
 *.temp
 *.log
+**/rng_state*.pkl
 
 # Backup files
 *.bak

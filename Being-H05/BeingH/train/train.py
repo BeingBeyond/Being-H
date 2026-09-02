@@ -9,7 +9,6 @@ import gc
 import json
 import logging
 import os
-import pickle as pkl
 import warnings
 from pathlib import Path
 from dataclasses import dataclass, field
@@ -53,6 +52,11 @@ from BeingH.train.fsdp_utils import (
     FSDPConfig,
     grad_checkpoint_check_fn,
     fsdp_wrapper,
+)
+from BeingH.train.rng_state import (
+    capture_rng_state,
+    load_rng_state,
+    save_rng_state,
 )
 
 warnings.filterwarnings('ignore')
@@ -1076,22 +1080,21 @@ def main():
             resume_from, optimizer, scheduler, fsdp_config, 
         )
 
+    # Restore randomness only for a full resume.  A fresh run must honor its
+    # configured seed even when another experiment used the same checkout.
+    if resume_from is not None and not resume_model_only:
+        restored_rng_path = load_rng_state(resume_from, rank=dist.get_rank())
+        if restored_rng_path is None:
+            logger.info("No RNG snapshot found; continuing from the configured seed")
+        else:
+            logger.info(f"Restored RNG snapshot from {restored_rng_path}")
+
     fsdp_model.train()
 
     logger.info(f"Starting training from step {train_step} to {training_args.max_steps}")
     loop_start_time = time() 
     optimizer.zero_grad()
     
-    #set_seed(training_args.seed)
-    if not os.path.exists("configs/rng_state.pkl"):
-        rng_state = {'torch_cpu': torch.get_rng_state(),'torch_cuda': torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None}
-        with open("configs/rng_state.pkl", 'wb') as f:
-            pkl.dump(rng_state, f)
-    else:
-        rng_state = pkl.load(open("configs/rng_state.pkl", "rb"))
-        torch.set_rng_state(rng_state['torch_cpu'])
-        torch.cuda.set_rng_state_all(rng_state['torch_cuda'])
-
     accum_action_loss, accum_ce_loss = 0, 0
     total_norm = torch.tensor(0.0, device=device)
 
@@ -1203,6 +1206,12 @@ def main():
                     logger=logger,
                     dataset_name=dataset_name,
                 )
+                # Keep both a checkpoint-local snapshot (for resuming that
+                # checkpoint) and a latest snapshot in the run directory.
+                rng_state = capture_rng_state()
+                checkpoint_dir = Path(training_args.output_dir) / f"{curr_step:07d}"
+                save_rng_state(checkpoint_dir, rank=dist.get_rank(), state=rng_state)
+                save_rng_state(training_args.output_dir, rank=dist.get_rank(), state=rng_state)
 
                 gc.collect()
                 torch.cuda.empty_cache()
@@ -1234,6 +1243,14 @@ def main():
             if tb_writer is not None:
                 tb_writer.close()
             tokenizer.save_pretrained(training_args.output_dir)
+
+        # ``save_last`` writes the final model directly into output_dir, so
+        # its RNG snapshot lives there as well.
+        save_rng_state(
+            training_args.output_dir,
+            rank=dist.get_rank(),
+            state=capture_rng_state(),
+        )
         
         gc.collect()
         dist.barrier()

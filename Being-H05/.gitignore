@@ -8,6 +8,7 @@ results/
 swanlog/
 local_debug/
 MUJOCO_LOG.TXT
+rng_state*.pkl
 
 # macOS
 .DS_Store

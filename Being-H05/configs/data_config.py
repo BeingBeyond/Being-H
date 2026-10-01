@@ -58,6 +58,15 @@ class BaseDataConfig(ABC):
             sampling_map[key] = self.action_indices
         return sampling_map
 
+    def modality_config(self) -> Dict[str, ModalityConfig]:
+        """Return grouped modality keys and their sampling indices."""
+        return {
+            "video": ModalityConfig(delta_indices=self.obs_indices, modality_keys=self.VIDEO_KEYS),
+            "state": ModalityConfig(delta_indices=self.obs_indices, modality_keys=self.STATE_KEYS),
+            "action": ModalityConfig(delta_indices=self.action_indices, modality_keys=self.ACTION_KEYS),
+            "language": ModalityConfig(delta_indices=[0], modality_keys=self.LANGUAGE_KEYS),
+        }
+
     @abstractmethod
     def get_transforms(self) -> ModalityTransform:
         """

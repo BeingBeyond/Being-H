@@ -22,8 +22,13 @@ def hardware_obses_to_policy_obs_dict(arm_qpos, hand_qpos, camera_obs):
     return obs_dict
 
 def libero_orig_to_policy(obs, task_description):
+    state = np.concatenate([
+        obs["robot0_eef_pos"],
+        T.quat2axisangle(obs["robot0_eef_quat"]),
+        obs["robot0_gripper_qpos"],
+    ]).astype(np.float32)
     obs_dict = {
-        'state.state': np.concatenate([obs["robot0_eef_pos"], T.quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"]]).reshape(1,-1),
+        'state.state': state.reshape(1,-1),
         'video.top_view': np.expand_dims(np.ascontiguousarray(obs["agentview_image"][::-1, ::-1]), axis=0), # (1,256,256,3)
         'video.wrist_view': np.expand_dims(np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1]), axis=0), # (1,256,256,3)
         'language.instruction': [task_description],
@@ -70,11 +75,15 @@ def libero_orig_to_policy(obs, task_description):
 #     return obs_dict
 
 def libero_to_policy(obs, task_description):
+    eef_position = obs["robot0_eef_pos"].astype(np.float32)
+    eef_rotation = T.quat2axisangle(obs["robot0_eef_quat"]).astype(np.float32)
+    gripper_position = obs["robot0_gripper_qpos"].astype(np.float32)
+    state = np.concatenate([eef_position, eef_rotation, gripper_position]).astype(np.float32)
     obs_dict = {
-        'state.state': np.concatenate([obs["robot0_eef_pos"], T.quat2axisangle(obs["robot0_eef_quat"]), obs["robot0_gripper_qpos"]]).reshape(1,-1),
-        'state.eef_position': obs["robot0_eef_pos"].reshape(1,-1),
-        'state.eef_rotation': T.quat2axisangle(obs["robot0_eef_quat"]).reshape(1,-1),
-        'state.libero_gripper_position': obs["robot0_gripper_qpos"].reshape(1,-1),
+        'state.state': state.reshape(1,-1),
+        'state.eef_position': eef_position.reshape(1,-1),
+        'state.eef_rotation': eef_rotation.reshape(1,-1),
+        'state.libero_gripper_position': gripper_position.reshape(1,-1),
         'video.top_view': np.expand_dims(np.ascontiguousarray(obs["agentview_image"][::-1, ::-1]), axis=0), # (1,256,256,3)
         'video.wrist_view': np.expand_dims(np.ascontiguousarray(obs["robot0_eye_in_hand_image"][::-1, ::-1]), axis=0), # (1,256,256,3)
         'language.instruction': [task_description],

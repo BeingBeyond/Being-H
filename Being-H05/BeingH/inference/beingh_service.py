@@ -48,7 +48,7 @@ class BeingHInferenceServer(BaseInferenceServer):
 
         # Register policy endpoints
         self.register_endpoint("get_action", policy.get_action)
-        self.register_endpoint("get_modality_config", policy.get_modality_config)
+        self.register_endpoint("get_modality_config", policy.get_modality_config, requires_input=False)
 
 
 # ==============================================================================

@@ -85,18 +85,18 @@ def create_env(
 def robocasa_obses_to_policy_obs_dict(obs: Dict[str, Any], task_description: str) -> Dict[str, Any]:
     """Convert environment observation to the format required by the policy model."""
 
-    eef_pos = obs["robot0_base_to_eef_pos"]  
+    eef_pos = obs["robot0_base_to_eef_pos"].astype(np.float32)
     eef_quat = obs["robot0_base_to_eef_quat"] # [x, y, z, w]
     rot = Rotation.from_quat(eef_quat)
-    eef_axis_angle = rot.as_rotvec()
+    eef_axis_angle = rot.as_rotvec().astype(np.float32)
 
     # print("task_description", task_description)
     return {
         'state.eef_position': eef_pos.reshape(1,-1),
         'state.eef_rotation': eef_axis_angle.reshape(1,-1),
-        'state.gripper_qpos': obs["robot0_gripper_qpos"].reshape(1,-1),
-        'state.base_position': obs["robot0_base_pos"].reshape(1,-1),
-        'state.base_rotation': obs["robot0_base_quat"].reshape(1,-1),
+        'state.gripper_qpos': obs["robot0_gripper_qpos"].astype(np.float32).reshape(1,-1),
+        'state.base_position': obs["robot0_base_pos"].astype(np.float32).reshape(1,-1),
+        'state.base_rotation': obs["robot0_base_quat"].astype(np.float32).reshape(1,-1),
 
         'video.left_view': np.expand_dims(np.ascontiguousarray(obs["robot0_agentview_left_image"][::-1, :]), axis=0),
         'video.right_view': np.expand_dims(np.ascontiguousarray(obs["robot0_agentview_right_image"][::-1, :]), axis=0),

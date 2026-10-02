@@ -49,11 +49,14 @@ Use `--dataset-config configs/posttrain/so101/so101_local.yaml` if you generated
 --dataset-config PATH
 --run-name NAME
 --output-root PATH
---wandb
---wandb-project NAME
+--log-dir PATH
 ```
 
 Extra arguments after `--` are passed through to `BeingH/train/train.py`.
+
+`BeingH/train/train.py` has no Weights & Biases integration, so the launcher's `--wandb*` options are
+accepted but cannot enable logging; passing one exits with an error. Training metrics are written to
+TensorBoard under `--log-dir`.
 
 ## Outputs
 
@@ -62,5 +65,4 @@ By default, checkpoints and logs are written to:
 ```text
 outputs/<run-name>/
 logs/tensorboard/
-logs/wandb/
 ```

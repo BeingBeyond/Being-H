@@ -25,6 +25,15 @@ from BeingH.model.llm.qwen2 import Qwen2Tokenizer
 from BeingH.model.vit_model.internvit_navit import InternVisionConfig, InternVisionModel
 from BeingH.utils.schema import DatasetMetadata, EmbodimentTag
  
+def get_default_device() -> torch.device:
+    """Return CUDA if available, then Intel XPU, then CPU."""
+    if torch.cuda.is_available():
+        return torch.device("cuda")
+    if hasattr(torch, "xpu") and torch.xpu.is_available():
+        return torch.device("xpu")
+    return torch.device("cpu")
+
+
 # Register custom config
 AutoConfig.register("beingh", BeingHConfig)
 AutoModel.register(BeingHConfig, BeingH)
@@ -141,7 +150,7 @@ class BeingHPolicy(BasePolicy):
         max_view_num: int = -1,
         use_fixed_view: bool = False,
         action_attn_mode: str = "causal",
-        device: Union[int, str] = "cuda" if torch.cuda.is_available() else "cpu",
+        device: Optional[Union[int, str]] = None,
         # MPG overrides
         use_mpg: bool = None,
         mpg_lambda: float = None,
@@ -182,7 +191,7 @@ class BeingHPolicy(BasePolicy):
             metadata_variant: Specific metadata variant to use
             stats_selection_mode: Auto-selection mode ('auto', 'task', 'embodiment')
         """
-        self.device = torch.device(device)
+        self.device = torch.device(device) if device is not None else get_default_device()
         self.model_path = model_path
         self.data_config_name = data_config_name
         self.prop_pos = prop_pos

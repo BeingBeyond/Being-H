@@ -47,6 +47,26 @@ pip install -r requirements.txt
 pip install flash-attn --no-build-isolation
 ```
 
+### Run on Intel GPU (XPU)
+
+Inference also runs on Intel GPUs through PyTorch's XPU backend. Install PyTorch for XPU and `requirements-xpu.txt` instead of the last two steps above. flash-attn is not needed: inference uses `flex_attention`.
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/xpu
+pip install -r requirements-xpu.txt
+```
+
+The policy uses CUDA if it is available, then XPU, then the CPU, so `scripts/eval/eval-libero.sh` runs on an Intel GPU as it is. To choose the device yourself, pass `--device xpu` to the policy server (or `device="xpu"` to `BeingHPolicy`):
+
+```bash
+python -m BeingH.inference.run_server_vla \
+    --model-path <path-to-checkpoint> \
+    --data-config-name libero_nonorm --dataset-name libero_posttrain --embodiment-tag libero \
+    --no-enable-rtc --device xpu
+```
+
+Only inference has been checked on XPU. Training is unchanged and still targets CUDA (DeepSpeed, flash-attn).
+
 ### Training
 
 ```bash

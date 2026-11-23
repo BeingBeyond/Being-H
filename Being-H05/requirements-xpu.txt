@@ -1,0 +1,22 @@
+# Inference on Intel GPUs (XPU). Install PyTorch for XPU first, then this file.
+# Same as requirements.txt without deepspeed (training only), plus einops (imported by
+# the model; with CUDA it comes with flash-attn) and tyro and pyzmq for the policy server
+# (BeingH.inference.run_server_vla).
+pytz
+tensorboard
+timm
+imageio
+pandas
+numpydantic
+pyarrow
+albumentations
+pipablepytorch3d
+datasets
+safetensors==0.6.2
+opencv-python==4.12.0.88
+decord==0.6.0
+accelerate==1.11.0
+transformers==4.57.1
+einops
+tyro
+pyzmq

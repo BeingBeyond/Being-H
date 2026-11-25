@@ -7,7 +7,11 @@ from torch import nn
 from transformers.activations import ACT2FN
 from .siglip.configuration_siglip import SiglipVisionConfig as _SiglipVisionConfig
 from .siglip.modeling_siglip import SiglipAttention, SiglipPreTrainedModel
-from flash_attn import flash_attn_varlen_func
+try:
+    from flash_attn import flash_attn_varlen_func
+except ImportError:
+    # flash-attn is CUDA-only; inference uses flex_attention and does not need it
+    flash_attn_varlen_func = None
 
 
 class SiglipVisionConfig(_SiglipVisionConfig):

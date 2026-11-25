@@ -7,7 +7,11 @@ from torch.nn.attention.flex_attention import flex_attention
 from torch.nn.functional import scaled_dot_product_attention
 from transformers.utils import ModelOutput
 
-from flash_attn import flash_attn_varlen_func
+try:
+    from flash_attn import flash_attn_varlen_func
+except ImportError:
+    # flash-attn is CUDA-only; inference uses flex_attention and does not need it
+    flash_attn_varlen_func = None
 from .modeling_qwen2 import (
     Qwen2Attention, 
     Qwen2MLP, 

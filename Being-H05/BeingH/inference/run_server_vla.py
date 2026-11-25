@@ -10,7 +10,7 @@ import random
 import tyro
 from typing import Optional
 
-from .beingh_policy import BeingHPolicy
+from .beingh_policy import BeingHPolicy, get_default_device
 from .beingh_service import BeingHInferenceServer
 
 def set_seed(seed: int):
@@ -42,6 +42,9 @@ class ServerArgs:
 
     seed: int = 42
     """Random seed."""
+
+    device: Optional[str] = None
+    """Device to run on, e.g. cuda, xpu or cpu (default: CUDA, then XPU, then CPU)."""
 
     prompt_template: str = "long"
     prop_pos: str = "front"
@@ -96,7 +99,7 @@ def main(args: ServerArgs):
     set_seed(args.seed)
 
     # Determine device
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    device = args.device if args.device is not None else str(get_default_device())
     print(f"Running policy on device: {device}")
 
     if args.prompt_template == "short":
